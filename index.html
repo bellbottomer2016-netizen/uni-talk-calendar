@@ -338,6 +338,30 @@
   }
   .field-input:focus { border-color: #FF9800; }
 
+  .color-picker {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    margin-bottom: 18px;
+    justify-content: center;
+  }
+
+  .color-dot {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    border: 3px solid transparent;
+    cursor: pointer;
+    transition: transform 0.12s, border-color 0.12s;
+    -webkit-user-select: none;
+    user-select: none;
+  }
+  .color-dot:active { transform: scale(0.9); }
+  .color-dot.selected {
+    border-color: #333;
+    transform: scale(1.15);
+  }
+
   .modal-actions {
     display: flex;
     gap: 10px;
@@ -503,6 +527,9 @@
     <label class="field-label">Time</label>
     <input class="field-input" type="time" id="inputTime" value="10:00">
 
+    <label class="field-label">Color</label>
+    <div class="color-picker" id="colorPicker"></div>
+
     <div class="modal-actions" id="modalActions"></div>
   </div>
 </div>
@@ -528,8 +555,21 @@ const WEEKDAY_COLORS = [
   "#42A5F5"   // Sat - light blue
 ];
 
-// Tag background colors for lessons - uses month accent color
-const TAG_COLORS = MONTH_COLORS;
+// Lesson tag color options for the color picker
+var LESSON_COLORS = [
+  "#E53935",
+  "#FF6F00",
+  "#F9A825",
+  "#43A047",
+  "#0277BD",
+  "#7B1FA2",
+  "#EC407A",
+  "#00897B",
+  "#5D4037",
+  "#455A64"
+];
+
+var selectedColor = LESSON_COLORS[0];
 
 const today = new Date();
 let currentYear = today.getFullYear();
@@ -612,7 +652,7 @@ function render() {
             const tag = document.createElement('div');
             tag.className = 'lesson-tag';
             tag.textContent = l.name;
-            tag.style.background = MONTH_COLORS[currentMonth];
+            tag.style.background = l.color || LESSON_COLORS[0];
 
             tag.addEventListener('click', (e) => { e.stopPropagation(); if(!isExport) openModal(day, li); });
 
@@ -646,9 +686,31 @@ function openModal(day, editIdx) {
     document.getElementById('modalSubtitle').textContent = 'EDIT LESSON';
     var l = lessons[key(currentYear, currentMonth, day)][editIdx];
     nameInput.value = l.name; timeInput.value = l.time;
+    selectedColor = l.color || LESSON_COLORS[0];
   } else {
     document.getElementById('modalSubtitle').textContent = 'NEW LESSON';
     nameInput.value = ''; timeInput.value = '10:00';
+    selectedColor = LESSON_COLORS[0];
+  }
+
+  // Render color picker
+  var picker = document.getElementById('colorPicker');
+  picker.innerHTML = '';
+  for (var ci = 0; ci < LESSON_COLORS.length; ci++) {
+    var dot = document.createElement('div');
+    dot.className = 'color-dot';
+    if (LESSON_COLORS[ci] === selectedColor) dot.className += ' selected';
+    dot.style.background = LESSON_COLORS[ci];
+    dot.setAttribute('data-color', LESSON_COLORS[ci]);
+    dot.onclick = function() {
+      selectedColor = this.getAttribute('data-color');
+      var dots = picker.querySelectorAll('.color-dot');
+      for (var di = 0; di < dots.length; di++) {
+        dots[di].classList.remove('selected');
+      }
+      this.classList.add('selected');
+    };
+    picker.appendChild(dot);
   }
 
   actionsEl.innerHTML = '';
@@ -676,20 +738,20 @@ function closeModal() {
 }
 
 function saveLesson() {
-  const name = document.getElementById('inputName').value.trim();
-  const time = document.getElementById('inputTime').value;
+  var name = document.getElementById('inputName').value.trim();
+  var time = document.getElementById('inputTime').value;
   if (!name) return;
-  const k = key(currentYear, currentMonth, modalDay);
+  var k = key(currentYear, currentMonth, modalDay);
   if (!lessons[k]) lessons[k] = [];
-  if (modalEditIdx !== null) lessons[k][modalEditIdx] = { name, time };
-  else lessons[k].push({ name, time });
-  lessons[k].sort((a, b) => a.time.localeCompare(b.time));
+  if (modalEditIdx !== null) lessons[k][modalEditIdx] = { name: name, time: time, color: selectedColor };
+  else lessons[k].push({ name: name, time: time, color: selectedColor });
+  lessons[k].sort(function(a, b) { return a.time.localeCompare(b.time); });
   saveLocal(); closeModal(); render();
 }
 
 function deleteLesson() {
   if (modalEditIdx === null) return;
-  const k = key(currentYear, currentMonth, modalDay);
+  var k = key(currentYear, currentMonth, modalDay);
   lessons[k].splice(modalEditIdx, 1);
   if (lessons[k].length === 0) delete lessons[k];
   saveLocal(); closeModal(); render();
